@@ -1,108 +1,272 @@
-# FlightGuesser
-import time
-import random
-import requests
-import reverse_geocoder as rg
-
-# Fetch live data from OpenSky Network
-def get_live_flights():
-    print("🛰️ Connecting to live radar networks...")
-    url = "https://opensky-network.org"
-    try:
-        response = requests.get(url, timeout=10)
-        data = response.json()
-        return data.get("states", [])
-    except Exception as e:
-        print(f"❌ Error fetching live data: {e}")
-        return []
-
-# Convert coordinates into a country name
-def get_country_from_coords(lat, lon):
-    try:
-        result = rg.search((lat, lon), verbose=False)
-        return result[0]['cc']  # Returns 2-letter country code (e.g., 'US', 'NZ')
-    except:
-        return "Unknown"
-
-# Format flight headings into compass directions
-def get_cardinal_direction(heading):
-    if heading is None:
-        return "Unknown"
-    directions = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"]
-    idx = int((heading + 22.5) % 360 // 45)
-    return directions[idx]
-
-# Setup and run the game loop
-def start_game():
-    print("=" * 50)
-    print("✈️ LIVE FLIGHT RADAR GUESSING GAME ✈️")
-    print("=" * 50)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✈️ Live Flight Radar Guessing Game</title>
     
-    flights = get_live_flights()
-    # Filter for active flights with complete data
-    valid_flights = [f for f in flights if f[5] and f[6] and f[2] and f[1].strip()]
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com" />
     
-    if not valid_flights:
-        print("No active flights found at this second. Try running the game again!")
-        return
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #0f4c81;
+            padding: 15px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #game-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        #sidebar {
+            width: 350px;
+            background-color: #262626;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        #map {
+            flex: 1;
+            height: 100%;
+        }
+        .stat-box {
+            background-color: #333;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 5px solid #0f4c81;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        #options-container {
+            margin-top: 20px;
+        }
+        .btn-option {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background-color: #444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-align: left;
+        }
+        .btn-option:hover {
+            background-color: #555;
+        }
+        #score-board {
+            font-size: 18px;
+            text-align: center;
+            font-weight: bold;
+            padding: 10px;
+            background-color: #0f4c81;
+            border-radius: 6px;
+        }
+        #feedback {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+            min-height: 27px;
+        }
+        .correct { color: #4caf50; }
+        .incorrect { color: #f44336; }
+        #next-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #ff9800;
+            color: black;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+        }
+        #loader {
+            text-align: center;
+            font-size: 18px;
+            margin-top: 50%;
+        }
+    </style>
+</head>
+<body>
 
-    score = 0
-    rounds = 3
+    <header>✈️ LIVE FLIGHT RADAR GUESSING GAME</header>
 
-    for r in range(1, rounds + 1):
-        print(f"\n--- ROUND {r} of {rounds} ---")
-        
-        # Pick a random live plane
-        target = random.choice(valid_flights)
-        callsign = target[1].strip()
-        lon, lat = target[5], target[6]
-        origin_country = target[2]
-        altitude = target[7] if target[7] else 0
-        velocity = target[9] if target[9] else 0
-        heading = target[10]
-        
-        # Determine actual current country using coordinates
-        correct_country_code = get_country_from_coords(lat, lon)
-        
-        # Generate generic dummy options for the multiple-choice guess
-        country_pool = ['US', 'CA', 'GB', 'FR', 'DE', 'AU', 'NZ', 'JP', 'BR', 'ZA', 'IN', 'CN']
-        if correct_country_code not in country_pool:
-            country_pool.append(correct_country_code)
-        
-        options = random.sample(country_pool, 3)
-        if correct_country_code not in options:
-            options[0] = correct_country_code
-        random.shuffle(options)
+    <div id="game-container">
+        <div id="sidebar">
+            <div id="game-content" style="display:none;">
+                <div id="score-board">Score: <span id="score">0</span></div>
+                
+                <h3 style="margin-top:20px; border-bottom: 1px solid #444; padding-bottom:5px;">📋 Flight Telemetry</h3>
+                <div class="stat-box">
+                    <div class="stat-label">📡 Radio Callsign</div>
+                    <div class="stat-value" id="flight-callsign">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">📈 Current Altitude</div>
+                    <div class="stat-value" id="flight-altitude">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">🚀 Ground Speed</div>
+                    <div class="stat-value" id="flight-speed">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">🧭 Heading (Direction)</div>
+                    <div class="stat-value" id="flight-heading">-</div>
+                </div>
 
-        # Print Plane Stats
-        print(f"📡 Plane Callsign : {callsign}")
-        print(f"🛫 Registered In  : {origin_country}")
-        print(f"🌐 Current Coords : {lat:.4f}° N, {lon:.4f}° E")
-        print(f"📈 Altitude       : {int(altitude * 3.28084):,} feet")
-        print(f"🚀 Speed          : {int(velocity * 1.94384)} knots")
-        print(f"🧭 Heading        : {get_cardinal_direction(heading)} ({int(heading)}°)")
-        print("\n❓ GUESS: Which country code is this plane flying inside right now?")
-        
-        for i, opt in enumerate(options):
-            print(f"  {i + 1}) {opt}")
-
-        # Handle user input
-        try:
-            guess = int(input("\nYour choice (1-3): ")) - 1
-            if options[guess] == correct_country_code:
-                print("✅ CORRECT! Great navigation skills.")
-                score += 1
-            else:
-                print(f"❌ INCORRECT. The plane is flying over: {correct_country_code}")
-        except (ValueError, IndexError):
-            print(f"❌ Invalid entry. The correct answer was {correct_country_code}")
+                <div id="options-container">
+                    <p style="color:#aaa; font-size:14px;">❓ Guess the country this plane is flying over:</p>
+                    <button class="btn-option" onclick="makeGuess(0)"></button>
+                    <button class="btn-option" onclick="makeGuess(1)"></button>
+                    <button class="btn-option" onclick="makeGuess(2)"></button>
+                </div>
+                
+                <div id="feedback"></div>
+                <button id="next-btn" onclick="nextRound()">Next Flight ➡️</button>
+            </div>
             
-        time.sleep(1)
+            <div id="loader">📡 Scanning live airspace data...</div>
+        </div>
 
-    print("\n" + "=" * 50)
-    print(f"🏆 GAME OVER! Your Final Score: {score}/{rounds}")
-    print("=" * 50)
+        <div id="map"></div>
+    </div>
 
-if __name__ == "__main__":
-    start_game()
+    <!-- Leaflet Map JS Engine -->
+    <script src="https://unpkg.com"></script>
+    
+    <script>
+        let map;
+        let planeMarker;
+        let score = 0;
+        let currentFlight = null;
+        let correctCountry = "";
+        let gameActive = true;
+
+        const countriesPool = [
+            "United States", "United Kingdom", "Australia", "New Zealand", "Japan", 
+            "France", "Germany", "Canada", "Singapore", "United Arab Emirates", "South Africa"
+        ];
+
+        function initMap() {
+            map = L.map('map', {
+                center: [20, 0],
+                zoom: 2,
+                zoomControl: false
+            });
+            
+            L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(map);
+        }
+
+        async function fetchFlightData() {
+            document.getElementById('loader').style.display = "block";
+            document.getElementById('game-content').style.display = "none";
+            document.getElementById('feedback').innerText = "";
+            document.getElementById('next-btn').style.display = "none";
+            gameActive = true;
+
+            try {
+                const response = await fetch('https://opensky-network.org');
+                const data = await response.json();
+                
+                // OpenSky array indexes: 1 = callsign, 5 = longitude, 6 = latitude, 7 = altitude, 9 = velocity, 10 = true_track
+                const activeFlights = data.states.filter(f => f && f[1] && f[5] && f[6]);
+                
+                if (activeFlights.length === 0) throw new Error("No active flights found.");
+                
+                const selected = activeFlights[Math.floor(Math.random() * activeFlights.length)];
+                
+                currentFlight = {
+                    callsign: selected[1].trim(),
+                    lon: selected[5],
+                    lat: selected[6],
+                    altitude: selected[7] ? Math.round(selected[7] * 3.28084) : 0, 
+                    speed: selected[9] ? Math.round(selected[9] * 1.94384) : 0,    
+                    heading: selected[10] ? Math.round(selected[10]) : 0
+                };
+
+                const geoResp = await fetch(`https://openstreetmap.org{currentFlight.lat}&lon=${currentFlight.lon}&zoom=3`);
+                const geoData = await geoResp.json();
+                correctCountry = geoData.address.country || "International Airspace";
+
+                updateUI();
+            } catch (error) {
+                console.error("Retrying transmission...", error);
+                setTimeout(fetchFlightData, 1500);
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('loader').style.display = "none";
+            document.getElementById('game-content').style.display = "block";
+
+            document.getElementById('flight-callsign').innerText = currentFlight.callsign || "UNKNOWN";
+            document.getElementById('flight-altitude').innerText = currentFlight.altitude > 0 ? `${currentFlight.altitude.toLocaleString()} ft` : "Ground Level";
+            document.getElementById('flight-speed').innerText = `${currentFlight.speed} knots`;
+            document.getElementById('flight-heading').innerText = `${currentFlight.heading}° (${getCompassDirection(currentFlight.heading)})`;
+
+            map.setView([currentFlight.lat, currentFlight.lon], 4);
+            
+            if (planeMarker) map.removeLayer(planeMarker);
+            planeMarker = L.marker([currentFlight.lat, currentFlight.lon]).addTo(map)
+                .bindPopup(`<b>Tracking target: ${currentFlight.callsign}</b>`)
+                .openPopup();
+
+            let options = [correctCountry];
+            while (options.length < 3) {
+                let randomChoice = countriesPool[Math.floor(Math.random() * countriesPool.length)];
+                if (!options.includes(randomChoice)) {
+                    options.push(randomChoice);
+                }
+            }
+            options.sort(() => Math.random() - 0.5);
+
+            const buttons = document.querySelectorAll('.btn-option');
+            buttons.forEach((btn, idx) => {
+                btn.innerText = options[idx];
+                btn.style.backgroundColor = "#444"; 
+            });
+        }
+
+        function getCompassDirection(heading) {
+            const directions = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"];
+            return directions[Math.round(heading / 45) % 8];
+        }
+
+        function makeGuess(selectedIndex) {
+            if (!gameActive) return;
+gameActive = false;const buttons = document.querySelectorAll('.btn-option');const userChoice = buttons[selectedIndex].innerText;const feedbackEl = document.getElementById('feedback');if (userChoice === correctCountry) {feedbackEl.innerText = "✅ Correct Airspace!";feedbackEl.className = "correct";score++;document.getElementById('score').innerText = score;buttons[selectedIndex].style.backgroundColor = "#4caf50";} else {feedbackEl.innerText = ❌ Wrong! It was over ${correctCountry};feedbackEl.className = "incorrect";buttons[selectedIndex].style.backgroundColor = "#f44336";buttons.forEach(btn => {if (btn.innerText === correctCountry) btn.style.backgroundColor = "#4caf50";});}document.getElementById('next-btn').style.display = "block";}function nextRound() {fetchFlightData();}window.onload = () => {initMap();fetchFlightData();};
+
 
