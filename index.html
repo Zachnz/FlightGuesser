@@ -1,272 +1,444 @@
+cat > /mnt/user-data/outputs/index.html << 'ENDOFFILE'
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>✈️ Live Flight Radar Guessing Game</title>
-    
-    <!-- Leaflet Map CSS -->
-    <link rel="stylesheet" href="https://unpkg.com" />
-    
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #1a1a1a;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-        header {
-            background-color: #0f4c81;
-            padding: 15px;
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        #game-container {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
-        #sidebar {
-            width: 350px;
-            background-color: #262626;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            box-shadow: 4px 0 10px rgba(0,0,0,0.5);
-            z-index: 10;
-        }
-        #map {
-            flex: 1;
-            height: 100%;
-        }
-        .stat-box {
-            background-color: #333;
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 10px;
-            border-left: 5px solid #0f4c81;
-        }
-        .stat-label {
-            font-size: 12px;
-            color: #aaa;
-            text-transform: uppercase;
-        }
-        .stat-value {
-            font-size: 18px;
-            font-weight: bold;
-        }
-        #options-container {
-            margin-top: 20px;
-        }
-        .btn-option {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 10px;
-            background-color: #444;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.2s;
-            text-align: left;
-        }
-        .btn-option:hover {
-            background-color: #555;
-        }
-        #score-board {
-            font-size: 18px;
-            text-align: center;
-            font-weight: bold;
-            padding: 10px;
-            background-color: #0f4c81;
-            border-radius: 6px;
-        }
-        #feedback {
-            font-size: 18px;
-            font-weight: bold;
-            text-align: center;
-            margin-top: 10px;
-            min-height: 27px;
-        }
-        .correct { color: #4caf50; }
-        .incorrect { color: #f44336; }
-        #next-btn {
-            width: 100%;
-            padding: 12px;
-            background-color: #ff9800;
-            color: black;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            display: none;
-        }
-        #loader {
-            text-align: center;
-            font-size: 18px;
-            margin-top: 50%;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flight Guesser</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #06101a;
+    color: #aabbc8;
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+  }
+  /* Header */
+  #header {
+    border-bottom: 1px solid rgba(0,140,220,0.15);
+    padding: 13px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0,80,160,0.07);
+  }
+  #header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.1em;
+    color: #33aaff;
+    line-height: 1;
+  }
+  #header .subtitle { font-size: 8px; color: #1a3a4a; letter-spacing: 0.2em; margin-top: 2px; }
+  #score-label { font-size: 8px; color: #1a3a4a; letter-spacing: 0.1em; }
+  #score-value { font-family: 'Bebas Neue'; font-size: 28px; color: #00d26e; line-height: 1; text-align: right; }
+  #rounds-label { font-size: 8px; color: #1a3040; text-align: right; }
+
+  /* Layout */
+  #app { max-width: 560px; margin: 0 auto; padding: 14px 12px; }
+
+  /* Splash */
+  #splash { text-align: center; padding: 50px 0; }
+  #splash h2 { font-family: 'Bebas Neue'; font-size: 38px; color: #0e2030; letter-spacing: 0.05em; margin-bottom: 10px; }
+  #splash p { font-size: 11px; color: #1a3a4a; line-height: 1.9; margin-bottom: 26px; }
+
+  /* Buttons */
+  .btn-primary {
+    background: rgba(0,140,255,0.15);
+    border: 1px solid rgba(0,140,255,0.4);
+    border-radius: 8px;
+    padding: 11px 30px;
+    color: #33aaff;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s;
+    width: 100%;
+  }
+  .btn-primary:hover { background: rgba(0,140,255,0.25); }
+  .btn-primary:disabled { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.06); color: #1a2a3a; cursor: not-allowed; }
+  .btn-success {
+    background: rgba(0,210,110,0.12);
+    border: 1px solid rgba(0,210,110,0.3);
+    border-radius: 7px;
+    padding: 10px;
+    color: #00d26e;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    text-transform: uppercase;
+    width: 100%;
+    transition: background 0.2s;
+  }
+  .btn-success:hover { background: rgba(0,210,110,0.2); }
+
+  /* Flight card */
+  .card {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(0,140,220,0.13);
+    border-radius: 11px;
+    overflow: visible;
+    margin-bottom: 11px;
+  }
+  .card-header {
+    background: rgba(0,70,160,0.15);
+    padding: 11px 15px;
+    border-bottom: 1px solid rgba(0,140,220,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 11px 11px 0 0;
+  }
+  .callsign { font-family: 'Bebas Neue'; font-size: 26px; color: #fff; letter-spacing: 0.08em; }
+  .card-label { font-size: 8px; color: #2a5a7a; letter-spacing: 0.18em; margin-bottom: 2px; }
+  .card-body { display: flex; padding: 6px 15px 12px; gap: 10px; }
+  .stats { flex: 1; min-width: 0; }
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .stat-label { font-size: 10px; color: #3a5868; letter-spacing: 0.1em; text-transform: uppercase; }
+  .stat-value { font-size: 13px; font-weight: 600; color: #a8c8d8; }
+  .hint-box {
+    margin: 0 15px 13px;
+    padding: 8px 11px;
+    background: rgba(240,180,40,0.06);
+    border: 1px solid rgba(240,180,40,0.12);
+    border-radius: 6px;
+    font-size: 11px;
+    color: #907030;
+    line-height: 1.5;
+  }
+  .hint-label { font-size: 8px; color: #6a5010; letter-spacing: 0.12em; margin-right: 8px; }
+
+  /* Radar map */
+  #radar { flex-shrink: 0; align-self: center; padding-top: 4px; }
+
+  /* Guess section */
+  .guess-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 11px;
+    padding: 13px 15px;
+    margin-bottom: 11px;
+  }
+  .section-label { font-size: 8px; color: #33aaff; letter-spacing: 0.18em; margin-bottom: 11px; }
+  .guess-row { display: flex; gap: 9px; margin-bottom: 11px; }
+  .guess-field { flex: 1; min-width: 0; position: relative; }
+  .field-label { font-size: 9px; letter-spacing: 0.15em; color: #4a6878; margin-bottom: 5px; text-transform: uppercase; }
+  .airport-input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 7px;
+    padding: 9px 12px;
+    color: #aabbc8;
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .airport-input:focus { border-color: rgba(0,140,255,0.3); }
+  .airport-input:disabled { opacity: 0.5; cursor: not-allowed; }
+  .dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    z-index: 200;
+    background: #0c1b2b;
+    border: 1px solid rgba(0,140,255,0.2);
+    border-radius: 7px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    display: none;
+  }
+  .dropdown.open { display: block; }
+  .dropdown-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.1s;
+  }
+  .dropdown-item:hover { background: rgba(0,140,255,0.12); }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dp-code { color: #33aaff; font-weight: 700; font-size: 13px; }
+  .dp-city { color: #6a8898; font-size: 11px; margin-left: 8px; }
+  .selected-tag {
+    background: rgba(0,210,110,0.1);
+    border: 1px solid rgba(0,210,110,0.3);
+    border-radius: 7px;
+    padding: 9px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .selected-tag.locked { cursor: default; }
+  .tag-code { color: #00d26e; font-weight: 700; font-size: 14px; }
+  .tag-city { color: #5a8090; font-size: 11px; margin-left: 7px; }
+  .tag-clear { color: #2a4050; font-size: 11px; }
+
+  /* Results */
+  .results-grid { display: flex; gap: 8px; margin-bottom: 9px; }
+  .result-box {
+    flex: 1;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 9px;
+    text-align: center;
+  }
+  .result-label { font-size: 8px; color: #1a4a5a; letter-spacing: 0.1em; margin-bottom: 2px; }
+  .result-score { font-family: 'Bebas Neue'; font-size: 24px; line-height: 1; }
+  .result-dist { font-size: 9px; color: #1a4050; margin-top: 1px; }
+  .result-actual { font-size: 10px; color: #2a7060; margin-top: 3px; font-weight: 700; }
+  .analysis-box {
+    background: rgba(0,50,100,0.15);
+    border: 1px solid rgba(0,100,200,0.18);
+    border-radius: 8px;
+    padding: 9px 11px;
+    margin-bottom: 9px;
+    font-size: 11px;
+    color: #7a9aaa;
+    line-height: 1.7;
+  }
+  .analysis-label { font-size: 8px; color: #1a4a7a; letter-spacing: 0.15em; margin-bottom: 4px; }
+
+  /* Loading / error */
+  #loading { text-align: center; padding: 50px 0; font-size: 10px; color: #33aaff; letter-spacing: 0.2em; }
+  #error-box {
+    background: rgba(200,50,50,0.1);
+    border: 1px solid rgba(200,50,50,0.3);
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 12px;
+    color: #e88;
+    margin-bottom: 12px;
+    display: none;
+  }
+  .tips { font-size: 9px; color: #0e2030; text-align: center; line-height: 2; margin-top: 4px; }
+
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+  .pulsing { animation: pulse 1.5s infinite; }
+</style>
 </head>
 <body>
 
-    <header>✈️ LIVE FLIGHT RADAR GUESSING GAME</header>
+<div id="header">
+  <div>
+    <h1>✈ Flight Guesser</h1>
+    <div class="subtitle">REAL-TIME ROUTE IDENTIFICATION</div>
+  </div>
+  <div>
+    <div class="score-label" style="font-size:8px;color:#1a3a4a;letter-spacing:0.1em;text-align:right">SCORE</div>
+    <div id="score-value">0</div>
+    <div id="rounds-label" class="rounds-label" style="font-size:8px;color:#1a3040;text-align:right">0 rounds</div>
+  </div>
+</div>
 
-    <div id="game-container">
-        <div id="sidebar">
-            <div id="game-content" style="display:none;">
-                <div id="score-board">Score: <span id="score">0</span></div>
-                
-                <h3 style="margin-top:20px; border-bottom: 1px solid #444; padding-bottom:5px;">📋 Flight Telemetry</h3>
-                <div class="stat-box">
-                    <div class="stat-label">📡 Radio Callsign</div>
-                    <div class="stat-value" id="flight-callsign">-</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">📈 Current Altitude</div>
-                    <div class="stat-value" id="flight-altitude">-</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">🚀 Ground Speed</div>
-                    <div class="stat-value" id="flight-speed">-</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">🧭 Heading (Direction)</div>
-                    <div class="stat-value" id="flight-heading">-</div>
-                </div>
+<div id="app">
+  <!-- Splash screen -->
+  <div id="splash">
+    <h2>Ready for takeoff?</h2>
+    <p>A real plane is somewhere in the air right now.<br>
+    Study its stats and guess where it came from<br>and where it's headed.</p>
+    <button class="btn-primary" onclick="startGame()" style="width:auto;padding:11px 30px">Load Flight</button>
+  </div>
 
-                <div id="options-container">
-                    <p style="color:#aaa; font-size:14px;">❓ Guess the country this plane is flying over:</p>
-                    <button class="btn-option" onclick="makeGuess(0)"></button>
-                    <button class="btn-option" onclick="makeGuess(1)"></button>
-                    <button class="btn-option" onclick="makeGuess(2)"></button>
-                </div>
-                
-                <div id="feedback"></div>
-                <button id="next-btn" onclick="nextRound()">Next Flight ➡️</button>
-            </div>
-            
-            <div id="loader">📡 Scanning live airspace data...</div>
+  <!-- Loading -->
+  <div id="loading" style="display:none">
+    <span class="pulsing">SCANNING AIRSPACE…</span>
+  </div>
+
+  <!-- Error -->
+  <div id="error-box">
+    <span id="error-msg"></span>
+    <button onclick="loadFlight()" style="margin-left:14px;background:transparent;border:1px solid #e88;border-radius:4px;color:#e88;padding:3px 10px;cursor:pointer;font-family:inherit;font-size:11px;">Retry</button>
+  </div>
+
+  <!-- Flight card (hidden until loaded) -->
+  <div id="flight-section" style="display:none">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-label">CALLSIGN</div>
+          <div class="callsign" id="callsign">—</div>
         </div>
-
-        <div id="map"></div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#4a7a8a" id="aircraft-type">—</div>
+          <div style="font-size:10px;color:#2a5060;margin-top:2px" id="reg-country">—</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="stats">
+          <div class="stat-row"><span class="stat-label">Altitude</span><span class="stat-value" id="s-alt">—</span></div>
+          <div class="stat-row"><span class="stat-label">Speed</span><span class="stat-value" id="s-spd">—</span></div>
+          <div class="stat-row"><span class="stat-label">Heading</span><span class="stat-value" id="s-hdg">—</span></div>
+          <div class="stat-row"><span class="stat-label">Vert. Rate</span><span class="stat-value" id="s-vr">—</span></div>
+          <div class="stat-row"><span class="stat-label">Latitude</span><span class="stat-value" id="s-lat">—</span></div>
+          <div class="stat-row"><span class="stat-label">Longitude</span><span class="stat-value" id="s-lon">—</span></div>
+          <div class="stat-row"><span class="stat-label">Squawk</span><span class="stat-value" id="s-sqk">—</span></div>
+        </div>
+        <div id="radar"></div>
+      </div>
+      <div class="hint-box" id="hint-box" style="display:none">
+        <span class="hint-label">CLUE</span><span id="hint-text"></span>
+      </div>
     </div>
 
-    <!-- Leaflet Map JS Engine -->
-    <script src="https://unpkg.com"></script>
-    
-    <script>
-        let map;
-        let planeMarker;
-        let score = 0;
-        let currentFlight = null;
-        let correctCountry = "";
-        let gameActive = true;
+    <!-- Guess section -->
+    <div class="guess-card">
+      <div class="section-label">YOUR GUESS</div>
+      <div class="guess-row">
+        <div class="guess-field" id="origin-field">
+          <div class="field-label">✈ Origin airport</div>
+          <input class="airport-input" id="origin-input" placeholder="City or IATA code…" oninput="filterAirports('origin')" onfocus="openDropdown('origin')" onblur="closeDropdown('origin')">
+          <div class="dropdown" id="origin-dropdown"></div>
+          <div class="selected-tag" id="origin-tag" style="display:none" onclick="clearSelection('origin')">
+            <span><span class="tag-code" id="origin-tag-code"></span><span class="tag-city" id="origin-tag-city"></span></span>
+            <span class="tag-clear">✕</span>
+          </div>
+        </div>
+        <div class="guess-field" id="dest-field">
+          <div class="field-label">🏁 Destination airport</div>
+          <input class="airport-input" id="dest-input" placeholder="City or IATA code…" oninput="filterAirports('dest')" onfocus="openDropdown('dest')" onblur="closeDropdown('dest')">
+          <div class="dropdown" id="dest-dropdown"></div>
+          <div class="selected-tag" id="dest-tag" style="display:none" onclick="clearSelection('dest')">
+            <span><span class="tag-code" id="dest-tag-code"></span><span class="tag-city" id="dest-tag-city"></span></span>
+            <span class="tag-clear">✕</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn-primary" id="submit-btn" onclick="submitGuess()" disabled>Submit Guess</button>
 
-        const countriesPool = [
-            "United States", "United Kingdom", "Australia", "New Zealand", "Japan", 
-            "France", "Germany", "Canada", "Singapore", "United Arab Emirates", "South Africa"
-        ];
+      <!-- Results (hidden until submitted) -->
+      <div id="results" style="display:none;margin-top:11px">
+        <div class="results-grid">
+          <div class="result-box" id="origin-result-box">
+            <div class="result-label">ORIGIN</div>
+            <div class="result-score" id="origin-score">0</div>
+            <div class="result-dist" id="origin-dist"></div>
+            <div class="result-actual" id="origin-actual"></div>
+          </div>
+          <div class="result-box" id="dest-result-box">
+            <div class="result-label">DESTINATION</div>
+            <div class="result-score" id="dest-score">0</div>
+            <div class="result-dist" id="dest-dist"></div>
+            <div class="result-actual" id="dest-actual"></div>
+          </div>
+          <div class="result-box" style="border:1px solid rgba(0,140,255,0.15)">
+            <div class="result-label">ROUND</div>
+            <div class="result-score" id="round-score" style="color:#33aaff">0</div>
+            <div class="result-dist">/ 2000</div>
+          </div>
+        </div>
+        <div class="analysis-box" id="analysis-box" style="display:none">
+          <div class="analysis-label">DEBRIEF</div>
+          <div id="analysis-text"></div>
+        </div>
+        <div id="analysis-loading" style="display:none;font-size:9px;color:#33aaff;padding:6px 0;letter-spacing:0.12em">Analysing route…</div>
+        <button class="btn-success" onclick="loadFlight()">Next Flight →</button>
+      </div>
+    </div>
+    <div class="tips" id="tips">
+      Heading → destination · Altitude → flight length · Vert. rate → climbing/descending
+    </div>
+  </div>
+</div>
 
-        function initMap() {
-            map = L.map('map', {
-                center: [20, 0],
-                zoom: 2,
-                zoomControl: false
-            });
-            
-            L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap &copy; CARTO'
-            }).addTo(map);
-        }
-
-        async function fetchFlightData() {
-            document.getElementById('loader').style.display = "block";
-            document.getElementById('game-content').style.display = "none";
-            document.getElementById('feedback').innerText = "";
-            document.getElementById('next-btn').style.display = "none";
-            gameActive = true;
-
-            try {
-                const response = await fetch('https://opensky-network.org');
-                const data = await response.json();
-                
-                // OpenSky array indexes: 1 = callsign, 5 = longitude, 6 = latitude, 7 = altitude, 9 = velocity, 10 = true_track
-                const activeFlights = data.states.filter(f => f && f[1] && f[5] && f[6]);
-                
-                if (activeFlights.length === 0) throw new Error("No active flights found.");
-                
-                const selected = activeFlights[Math.floor(Math.random() * activeFlights.length)];
-                
-                currentFlight = {
-                    callsign: selected[1].trim(),
-                    lon: selected[5],
-                    lat: selected[6],
-                    altitude: selected[7] ? Math.round(selected[7] * 3.28084) : 0, 
-                    speed: selected[9] ? Math.round(selected[9] * 1.94384) : 0,    
-                    heading: selected[10] ? Math.round(selected[10]) : 0
-                };
-
-                const geoResp = await fetch(`https://openstreetmap.org{currentFlight.lat}&lon=${currentFlight.lon}&zoom=3`);
-                const geoData = await geoResp.json();
-                correctCountry = geoData.address.country || "International Airspace";
-
-                updateUI();
-            } catch (error) {
-                console.error("Retrying transmission...", error);
-                setTimeout(fetchFlightData, 1500);
-            }
-        }
-
-        function updateUI() {
-            document.getElementById('loader').style.display = "none";
-            document.getElementById('game-content').style.display = "block";
-
-            document.getElementById('flight-callsign').innerText = currentFlight.callsign || "UNKNOWN";
-            document.getElementById('flight-altitude').innerText = currentFlight.altitude > 0 ? `${currentFlight.altitude.toLocaleString()} ft` : "Ground Level";
-            document.getElementById('flight-speed').innerText = `${currentFlight.speed} knots`;
-            document.getElementById('flight-heading').innerText = `${currentFlight.heading}° (${getCompassDirection(currentFlight.heading)})`;
-
-            map.setView([currentFlight.lat, currentFlight.lon], 4);
-            
-            if (planeMarker) map.removeLayer(planeMarker);
-            planeMarker = L.marker([currentFlight.lat, currentFlight.lon]).addTo(map)
-                .bindPopup(`<b>Tracking target: ${currentFlight.callsign}</b>`)
-                .openPopup();
-
-            let options = [correctCountry];
-            while (options.length < 3) {
-                let randomChoice = countriesPool[Math.floor(Math.random() * countriesPool.length)];
-                if (!options.includes(randomChoice)) {
-                    options.push(randomChoice);
-                }
-            }
-            options.sort(() => Math.random() - 0.5);
-
-            const buttons = document.querySelectorAll('.btn-option');
-            buttons.forEach((btn, idx) => {
-                btn.innerText = options[idx];
-                btn.style.backgroundColor = "#444"; 
-            });
-        }
-
-        function getCompassDirection(heading) {
-            const directions = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"];
-            return directions[Math.round(heading / 45) % 8];
-        }
-
-        function makeGuess(selectedIndex) {
-            if (!gameActive) return;
-gameActive = false;const buttons = document.querySelectorAll('.btn-option');const userChoice = buttons[selectedIndex].innerText;const feedbackEl = document.getElementById('feedback');if (userChoice === correctCountry) {feedbackEl.innerText = "✅ Correct Airspace!";feedbackEl.className = "correct";score++;document.getElementById('score').innerText = score;buttons[selectedIndex].style.backgroundColor = "#4caf50";} else {feedbackEl.innerText = ❌ Wrong! It was over ${correctCountry};feedbackEl.className = "incorrect";buttons[selectedIndex].style.backgroundColor = "#f44336";buttons.forEach(btn => {if (btn.innerText === correctCountry) btn.style.backgroundColor = "#4caf50";});}document.getElementById('next-btn').style.display = "block";}function nextRound() {fetchFlightData();}window.onload = () => {initMap();fetchFlightData();};
-
-
+<script>
+// ── Airport database ──────────────────────────────────────────────────────────
+const AIRPORTS = [
+  {code:"JFK",city:"New York",country:"USA",lat:40.64,lon:-73.78},
+  {code:"LAX",city:"Los Angeles",country:"USA",lat:33.94,lon:-118.41},
+  {code:"ORD",city:"Chicago",country:"USA",lat:41.97,lon:-87.91},
+  {code:"ATL",city:"Atlanta",country:"USA",lat:33.64,lon:-84.43},
+  {code:"DFW",city:"Dallas",country:"USA",lat:32.90,lon:-97.04},
+  {code:"DEN",city:"Denver",country:"USA",lat:39.86,lon:-104.67},
+  {code:"SFO",city:"San Francisco",country:"USA",lat:37.62,lon:-122.38},
+  {code:"SEA",city:"Seattle",country:"USA",lat:47.45,lon:-122.31},
+  {code:"MIA",city:"Miami",country:"USA",lat:25.80,lon:-80.29},
+  {code:"BOS",city:"Boston",country:"USA",lat:42.37,lon:-71.01},
+  {code:"IAD",city:"Washington DC",country:"USA",lat:38.94,lon:-77.46},
+  {code:"EWR",city:"Newark",country:"USA",lat:40.69,lon:-74.17},
+  {code:"PHX",city:"Phoenix",country:"USA",lat:33.44,lon:-112.01},
+  {code:"LAS",city:"Las Vegas",country:"USA",lat:36.08,lon:-115.15},
+  {code:"LHR",city:"London",country:"UK",lat:51.47,lon:-0.45},
+  {code:"LGW",city:"London Gatwick",country:"UK",lat:51.15,lon:-0.18},
+  {code:"MAN",city:"Manchester",country:"UK",lat:53.35,lon:-2.27},
+  {code:"CDG",city:"Paris",country:"France",lat:49.01,lon:2.55},
+  {code:"AMS",city:"Amsterdam",country:"Netherlands",lat:52.31,lon:4.77},
+  {code:"FRA",city:"Frankfurt",country:"Germany",lat:50.04,lon:8.56},
+  {code:"MUC",city:"Munich",country:"Germany",lat:48.35,lon:11.79},
+  {code:"BER",city:"Berlin",country:"Germany",lat:52.37,lon:13.50},
+  {code:"MAD",city:"Madrid",country:"Spain",lat:40.49,lon:-3.57},
+  {code:"BCN",city:"Barcelona",country:"Spain",lat:41.30,lon:2.08},
+  {code:"FCO",city:"Rome",country:"Italy",lat:41.80,lon:12.24},
+  {code:"MXP",city:"Milan",country:"Italy",lat:45.63,lon:8.72},
+  {code:"ZRH",city:"Zurich",country:"Switzerland",lat:47.46,lon:8.55},
+  {code:"VIE",city:"Vienna",country:"Austria",lat:48.11,lon:16.57},
+  {code:"CPH",city:"Copenhagen",country:"Denmark",lat:55.62,lon:12.66},
+  {code:"ARN",city:"Stockholm",country:"Sweden",lat:59.65,lon:17.92},
+  {code:"OSL",city:"Oslo",country:"Norway",lat:60.20,lon:11.08},
+  {code:"HEL",city:"Helsinki",country:"Finland",lat:60.32,lon:24.96},
+  {code:"WAW",city:"Warsaw",country:"Poland",lat:52.17,lon:20.97},
+  {code:"ATH",city:"Athens",country:"Greece",lat:37.94,lon:23.95},
+  {code:"LIS",city:"Lisbon",country:"Portugal",lat:38.77,lon:-9.13},
+  {code:"DXB",city:"Dubai",country:"UAE",lat:25.25,lon:55.37},
+  {code:"AUH",city:"Abu Dhabi",country:"UAE",lat:24.43,lon:54.65},
+  {code:"DOH",city:"Doha",country:"Qatar",lat:25.27,lon:51.61},
+  {code:"RUH",city:"Riyadh",country:"Saudi Arabia",lat:24.96,lon:46.70},
+  {code:"IST",city:"Istanbul",country:"Turkey",lat:41.28,lon:28.75},
+  {code:"TLV",city:"Tel Aviv",country:"Israel",lat:32.01,lon:34.89},
+  {code:"CAI",city:"Cairo",country:"Egypt",lat:30.11,lon:31.41},
+  {code:"JNB",city:"Johannesburg",country:"South Africa",lat:-26.14,lon:28.25},
+  {code:"CPT",city:"Cape Town",country:"South Africa",lat:-33.97,lon:18.60},
+  {code:"NBO",city:"Nairobi",country:"Kenya",lat:-1.32,lon:36.93},
+  {code:"ADD",city:"Addis Ababa",country:"Ethiopia",lat:8.98,lon:38.80},
+  {code:"LOS",city:"Lagos",country:"Nigeria",lat:6.58,lon:3.32},
+  {code:"CMN",city:"Casablanca",country:"Morocco",lat:33.37,lon:-7.59},
+  {code:"SIN",city:"Singapore",country:"Singapore",lat:1.36,lon:103.99},
+  {code:"KUL",city:"Kuala Lumpur",country:"Malaysia",lat:2.75,lon:101.71},
+  {code:"BKK",city:"Bangkok",country:"Thailand",lat:13.69,lon:100.75},
+  {code:"CGK",city:"Jakarta",country:"Indonesia",lat:-6.13,lon:106.66},
+  {code:"MNL",city:"Manila",country:"Philippines",lat:14.51,lon:121.02},
+  {code:"NRT",city:"Tokyo",country:"Japan",lat:35.77,lon:140.39},
+  {code:"HND",city:"Tokyo Haneda",country:"Japan",lat:35.55,lon:139.78},
+  {code:"OSA",city:"Osaka",country:"Japan",lat:34.43,lon:135.24},
+  {code:"ICN",city:"Seoul",country:"South Korea",lat:37.47,lon:126.45},
+  {code:"PEK",city:"Beijing",country:"China",lat:40.08,lon:116.60},
+  {code:"PVG",city:"Shanghai",country:"China",lat:31.14,lon:121.80},
+  {code:"HKG",city:"Hong Kong",country:"China",lat:22.31,lon:113.92},
+  {code:"CAN",city:"Guangzhou",country:"China",lat:23.39,lon:113.30},
+  {code:"BOM",city:"Mumbai",country:"India",lat:19.09,lon:72.87},
+  {code:"DEL",city:"Delhi",country:"India",lat:28.56,lon:77.10},
+  {code:"BLR",city:"Bangalore",country:"India",lat:13.20,lon:77.71},
+  {code:"MAA",city:"Chennai",country:"India",lat:12.99,lon:80.17},
+  {code:"SYD",city:"Sydney",country:"Australia",lat:-33.94,lon:151.18},
+  {code:"MEL",city:"Melbourne",country:"Australia",lat:-37.67,lon:144.84},
+  {code:"BNE",city:"Brisbane",country:"Australia",lat:-27.38,lon:153.12},
+  {code:"PER",city:"Perth",country:"Australia",lat:-31.94,lon:115.97},
+  {code:"ADL",city:"Adelaide",country:"Australia",lat:-34.95,lon:138.53},
+  {code:"AKL",city:"Auckland",country:"New Zealand",lat:-37.01,lon:174.79},
+  {code:"CHC",city:"Christchurch",country:"New Zealand",lat:-43.49,lon:172.53},
+  {code:"WLG",city:"Wellington",country:"New Zealand",lat:-41.33,lon:174.81},
+  {code:"YYZ",city:"Toronto",country:"Canada",lat:43.68,lon:-79.63},
+  {code:"YVR",city:"Vancouver",country:"Canada",lat:49.19,lon:-123.18},
+  {code:"YUL",city:"Montreal",country:"Canada",lat:45.47,lon:-73.74},
+  {code:"YYC",city:"Calgary",country:"Canada",lat:51.13,lon:-114.01},
+  {code:"MEX",city:"Mexico City",country:"Mexico",lat:19.44,lon:-99.07},
+  {code:"CUN",city:"Cancun",country:"Mexico",lat:21.04,lon:-86.87},
+  {code:"GRU",city:"São Paulo",country:"Brazil",lat:-23.44,lon:-46.47},
+  {code:"GIG",city:"Rio de Janeiro",country:"Brazil",lat:-22.81,lon:-43.25},
+  {code:"BSB",city:"Brasilia",country:"Brazil",lat:-15.87,lon:-47.92},
+  {code:"EZE",city:"Buenos Aires",country:"Argentina",lat:-34.82,lon:-58.54},
+  {code:"SCL",city:"Santiago",country:"Chile",lat:-33.39,lon:-70.79},
+  {code:"LIM",city:"Lima",country:"Peru",lat:-12.02,lon:-77.11},
+  {code:"BOG",city:"Bogotá",country:"Colombia",lat:4.70,lon:-74.15},
+  {code:"PTY",city:"Panama City",country:"Panama",lat:9.07,lon:-79
