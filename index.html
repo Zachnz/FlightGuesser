@@ -1,0 +1,108 @@
+# FlightGuesser
+import time
+import random
+import requests
+import reverse_geocoder as rg
+
+# Fetch live data from OpenSky Network
+def get_live_flights():
+    print("🛰️ Connecting to live radar networks...")
+    url = "https://opensky-network.org"
+    try:
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        return data.get("states", [])
+    except Exception as e:
+        print(f"❌ Error fetching live data: {e}")
+        return []
+
+# Convert coordinates into a country name
+def get_country_from_coords(lat, lon):
+    try:
+        result = rg.search((lat, lon), verbose=False)
+        return result[0]['cc']  # Returns 2-letter country code (e.g., 'US', 'NZ')
+    except:
+        return "Unknown"
+
+# Format flight headings into compass directions
+def get_cardinal_direction(heading):
+    if heading is None:
+        return "Unknown"
+    directions = ["North", "North-East", "East", "South-East", "South", "South-West", "West", "North-West"]
+    idx = int((heading + 22.5) % 360 // 45)
+    return directions[idx]
+
+# Setup and run the game loop
+def start_game():
+    print("=" * 50)
+    print("✈️ LIVE FLIGHT RADAR GUESSING GAME ✈️")
+    print("=" * 50)
+    
+    flights = get_live_flights()
+    # Filter for active flights with complete data
+    valid_flights = [f for f in flights if f[5] and f[6] and f[2] and f[1].strip()]
+    
+    if not valid_flights:
+        print("No active flights found at this second. Try running the game again!")
+        return
+
+    score = 0
+    rounds = 3
+
+    for r in range(1, rounds + 1):
+        print(f"\n--- ROUND {r} of {rounds} ---")
+        
+        # Pick a random live plane
+        target = random.choice(valid_flights)
+        callsign = target[1].strip()
+        lon, lat = target[5], target[6]
+        origin_country = target[2]
+        altitude = target[7] if target[7] else 0
+        velocity = target[9] if target[9] else 0
+        heading = target[10]
+        
+        # Determine actual current country using coordinates
+        correct_country_code = get_country_from_coords(lat, lon)
+        
+        # Generate generic dummy options for the multiple-choice guess
+        country_pool = ['US', 'CA', 'GB', 'FR', 'DE', 'AU', 'NZ', 'JP', 'BR', 'ZA', 'IN', 'CN']
+        if correct_country_code not in country_pool:
+            country_pool.append(correct_country_code)
+        
+        options = random.sample(country_pool, 3)
+        if correct_country_code not in options:
+            options[0] = correct_country_code
+        random.shuffle(options)
+
+        # Print Plane Stats
+        print(f"📡 Plane Callsign : {callsign}")
+        print(f"🛫 Registered In  : {origin_country}")
+        print(f"🌐 Current Coords : {lat:.4f}° N, {lon:.4f}° E")
+        print(f"📈 Altitude       : {int(altitude * 3.28084):,} feet")
+        print(f"🚀 Speed          : {int(velocity * 1.94384)} knots")
+        print(f"🧭 Heading        : {get_cardinal_direction(heading)} ({int(heading)}°)")
+        print("\n❓ GUESS: Which country code is this plane flying inside right now?")
+        
+        for i, opt in enumerate(options):
+            print(f"  {i + 1}) {opt}")
+
+        # Handle user input
+        try:
+            guess = int(input("\nYour choice (1-3): ")) - 1
+            if options[guess] == correct_country_code:
+                print("✅ CORRECT! Great navigation skills.")
+                score += 1
+            else:
+                print(f"❌ INCORRECT. The plane is flying over: {correct_country_code}")
+        except (ValueError, IndexError):
+            print(f"❌ Invalid entry. The correct answer was {correct_country_code}")
+            
+        time.sleep(1)
+
+    print("\n" + "=" * 50)
+    print(f"🏆 GAME OVER! Your Final Score: {score}/{rounds}")
+    print("=" * 50)
+
+if __name__ == "__main__":
+    start_game()
+
